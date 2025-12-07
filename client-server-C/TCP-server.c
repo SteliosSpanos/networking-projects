@@ -10,7 +10,7 @@ int main() {
 
 	int server_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (server_socket == -1) {
-		printf("Socket failed\n");
+		perror("socket:");
 		exit(1);
 	}
 
@@ -21,33 +21,33 @@ int main() {
 
 	int bind_status = bind(server_socket, (struct sockaddr*) &server_address, sizeof(server_address));
 	if (bind_status == -1) {
-		printf("Binding failed\n");
+		perror("bind:");
 		exit(1);
 	}
 
 	int listen_status = listen(server_socket, 5);
 	if (listen_status == -1) {
-		printf("Listening failed\n");
+		perror("listen:");
 		exit(1);
 	}
 
 	int client_socket = accept(server_socket, NULL, NULL);
 	if (client_socket == -1) {
-		printf("Accepting client failed\n");
+		perror("accept:");
 		exit(1);
 	}
 
 	char response[256];
 	int recv_status = recv(client_socket, response, sizeof(response), 0);
 	if (recv_status == -1) {
-		printf("Receiving message from client failed\n");
+		perror("recv:");
 		exit(1);
 	}
 	response[recv_status] = '\0';
 
 	int send_status = send(client_socket, response, recv_status, 0);
 	if (send_status == -1) {
-		printf("Sending message to client failed\n");
+		perror("send:");
 		exit(1);
 	}
 
