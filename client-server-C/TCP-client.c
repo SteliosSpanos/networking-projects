@@ -22,7 +22,7 @@ int main() {
 						     
 	int status = connect(client_socket, (struct sockaddr*) &server_address, sizeof(server_address));
 	if (status == -1) {
-		printf("COnnection failed\n");
+		printf("Connection failed\n");
 		exit(1);
 	}
 
