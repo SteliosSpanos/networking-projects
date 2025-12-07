@@ -11,7 +11,7 @@ int main() {
 	
 	int client_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (client_socket == -1) {
-		printf("Socket failed\n");
+		perror("socket:");
 		exit(1);
 	}
 
@@ -22,7 +22,7 @@ int main() {
 						     
 	int status = connect(client_socket, (struct sockaddr*) &server_address, sizeof(server_address));
 	if (status == -1) {
-		printf("Connection failed\n");
+		perror("connect:");
 		exit(1);
 	}
 
@@ -31,14 +31,14 @@ int main() {
 	fgets(message, sizeof(message), stdin);
 	int send_status = send(client_socket, message, strlen(message), 0);
 	if (send_status == -1) {
-		printf("Sending message failed\n");
+		perror("send:");
 		exit(1);
 	}
 
 	char response[256];
 	int recv_status = recv(client_socket, response, sizeof(response), 0);
 	if (recv_status == -1) {
-		printf("Receiving message failed\n");
+		perror("recv:");
 		exit(1);
 	}
 	response[recv_status] = '\0';
