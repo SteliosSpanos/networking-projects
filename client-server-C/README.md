@@ -277,3 +277,6 @@ if (socket_fd == -1) {
 - Buffering multiple messages reduces overhead
 - Use sendmsg/recvmsg for scatter-gather I/O
 
+## License
+
+Educational implementation for learning purposes.
