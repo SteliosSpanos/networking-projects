@@ -10,6 +10,8 @@
 
 void handle_request(int client_socket);
 
+void send_error(int client_socket, int status_code, const char *message);
+
 int main() {
 
 	int server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -77,5 +79,72 @@ void handle_request(int client_socket) {
 		send_error(client_socket, 405, "Method Not Allowed");
 		return;
 	}
+
+	char filepath[512];
+	if (strstr(path, "..") != NULL) {
+		send_error(client_socket, 403, "Forbidden");
+		return;
+	}
+
+	if (strcmp(path, "/") == 0) {
+		snprintf(filepath, sizeof(filepath), "www/index.html");
+	}
+	else {
+		snprintf(filepath, sizeof(filepath), "www%s", path);
+	}
+
+
+	int fd;
+	struct stat file_stat;
+	char *file_content;
+
+	fd = open(filepath, O_RDONLY);
+	if (fd == -1) {
+		send_error(client_socket, 404, "Not Found");
+		return;
+	}
+
+	if (fstat(fd, &file_stat) == -1) {
+		close(fd);
+		send_error(client_socket, 500, "Internal Server Error");
+		return;
+	}
+
+	file_content = malloc(file_stat.st_size);
+	if (read(fd, file_content, file_stat.st_size) != file_stat.st_size) {
+		close(fd);
+		free(file_content);
+		send_error(client_socket, 500, "Internal Server Error");
+		return;
+	}
+	close(fd);
+
+	char response_header[1024];
+	int header_len = snprintf(response_header, sizeof(response_header),
+		"HTTP/1.1 200 OK\r\n"
+      		"Content-Type: text/html\r\n"
+      		"Content-Length: %ld\r\n"
+      		"Connection: close\r\n"
+      		"\r\n",
+      		file_stat.st_size
+	);
+
+	int send_header = send(client_socket, response_header, header_len, 0);
+	if (send_header == -1) {
+		perror("send:");
+		exit(1);
+	}
+
+	int send_body = send(client_socket, file_content, file_stat.st_size, 0);
+	if (send_body == -1) {
+		perror("send:");
+		exit(1);
+	}
+
+	free(file_content);
+
 }
+
+void send_error(int client_socket, int status_code, const char *message) {
+
 
