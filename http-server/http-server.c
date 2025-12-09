@@ -146,5 +146,23 @@ void handle_request(int client_socket) {
 }
 
 void send_error(int client_socket, int status_code, const char *message) {
+	char body[512];
+      	int body_len = snprintf(body, sizeof(body),
+        	"<html><head><title>%d %s</title></head>"
+          	"<body><h1>%d %s</h1></body></html>",
+          	status_code, status_message, status_code, status_message
+	);
 
+  	char response[1024];
+      	int response_len = snprintf(response, sizeof(response),
+          	"HTTP/1.1 %d %s\r\n"
+          	"Content-Type: text/html\r\n"
+          	"Content-Length: %d\r\n"
+          	"Connection: close\r\n"
+          	"\r\n"
+          	"%s",
+          	status_code, status_message, body_len, body
+	);
 
+      	send(client_socket, response, response_len, 0);
+}
