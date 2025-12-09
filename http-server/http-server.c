@@ -10,7 +10,7 @@
 
 void handle_request(int client_socket);
 
-void send_error(int client_socket, int status_code, const char *message);
+void send_error(int client_socket, int status_code, const char *status_message);
 
 int main() {
 
@@ -57,7 +57,7 @@ int main() {
 
 void handle_request(int client_socket) {
 	char buffer[4096];
-	int recv_status = recv(client_socket, buffer, sizeof(buffer));
+	int recv_status = recv(client_socket, buffer, sizeof(buffer), 0);
 	if (recv_status == -1) {
 		perror("recv:");
 		exit(1);
@@ -75,7 +75,7 @@ void handle_request(int client_socket) {
 	sscanf(buffer, "%15s %255s %15s", method, path, version);
 	printf("Method: %s, Path: %s, Version: %s\n", method, path, version);
 
-	if (strcmp(method "GET") != 0) {
+	if (strcmp(method, "GET") != 0) {
 		send_error(client_socket, 405, "Method Not Allowed");
 		return;
 	}
@@ -145,7 +145,7 @@ void handle_request(int client_socket) {
 
 }
 
-void send_error(int client_socket, int status_code, const char *message) {
+void send_error(int client_socket, int status_code, const char *status_message) {
 	char body[512];
       	int body_len = snprintf(body, sizeof(body),
         	"<html><head><title>%d %s</title></head>"
