@@ -9,19 +9,23 @@
 #include <fcntl.h>
 
 void handle_request(int client_socket);
-
 void send_error(int client_socket, int status_code, const char *status_message);
+const char* get_mime_type(const char *filepath);
 
 int main() {
 
 	int server_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (server_socket == -1) {
-		perror("socket:");
+		perror("socket");
 		exit(1);
 	}
 
 	int opt = 1;
-	setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+	if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+		perror("setsockopt");
+		close(server_socket);
+		exit(1);
+	}
 
 	struct sockaddr_in server_address;
 	server_address.sin_family = AF_INET;
@@ -30,20 +34,24 @@ int main() {
 
 	int bind_status = bind(server_socket, (struct sockaddr*) &server_address, sizeof(server_address));
 	if (bind_status == -1) {
-		perror("bind:");
+		perror("bind");
+		close(server_socket);
 		exit(1);
 	}
 
 	int listen_status = listen(server_socket, 5);
 	if (listen_status == -1) {
-		perror("listen:");
+		perror("listen");
+		close(server_socket);
 		exit(1);
 	}
+
+	printf("HTTP server listening on port 8080\n");
 
 	while(1) {
 		int client_socket = accept(server_socket, NULL, NULL);
 		if (client_socket == -1) {
-			perror("accept:");
+			perror("accept");
 			continue;
 		}
 
@@ -51,16 +59,16 @@ int main() {
 		close(client_socket);
 	}
 
-
+	close(server_socket);
 	return 0;
 }
 
 void handle_request(int client_socket) {
 	char buffer[4096];
-	int recv_status = recv(client_socket, buffer, sizeof(buffer), 0);
+	int recv_status = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
 	if (recv_status == -1) {
-		perror("recv:");
-		exit(1);
+		perror("recv");
+		return;
 	}
 	if (recv_status == 0) {
 		printf("Client disconnected\n");
@@ -72,10 +80,14 @@ void handle_request(int client_socket) {
 	char path[256];
 	char version[16];
 
-	sscanf(buffer, "%15s %255s %15s", method, path, version);
+	if (sscanf(buffer, "%15s %255s %15s", method, path, version) != 3) {
+		send_error(client_socket, 400, "Bad Request");
+		return;
+	}
+
 	printf("Method: %s, Path: %s, Version: %s\n", method, path, version);
 
-	if (strcmp(method, "GET") != 0) {
+	if (strcmp(method, "GET") != 0 && strcmp(method, "HEAD") != 0) {
 		send_error(client_socket, 405, "Method Not Allowed");
 		return;
 	}
@@ -92,7 +104,6 @@ void handle_request(int client_socket) {
 	else {
 		snprintf(filepath, sizeof(filepath), "www%s", path);
 	}
-
 
 	int fd;
 	struct stat file_stat;
@@ -111,6 +122,12 @@ void handle_request(int client_socket) {
 	}
 
 	file_content = malloc(file_stat.st_size);
+	if (!file_content) {
+		close(fd);
+		send_error(client_socket, 500, "Internal Server Error");
+		return;
+	}
+
 	if (read(fd, file_content, file_stat.st_size) != file_stat.st_size) {
 		close(fd);
 		free(file_content);
@@ -119,50 +136,76 @@ void handle_request(int client_socket) {
 	}
 	close(fd);
 
+	const char *mime_type = get_mime_type(filepath);
+
 	char response_header[1024];
 	int header_len = snprintf(response_header, sizeof(response_header),
 		"HTTP/1.1 200 OK\r\n"
-      		"Content-Type: text/html\r\n"
-      		"Content-Length: %ld\r\n"
-      		"Connection: close\r\n"
-      		"\r\n",
-      		file_stat.st_size
+		"Content-Type: %s\r\n"
+		"Content-Length: %ld\r\n"
+		"Connection: close\r\n"
+		"\r\n",
+		mime_type,
+		file_stat.st_size
 	);
 
-	int send_header = send(client_socket, response_header, header_len, 0);
-	if (send_header == -1) {
-		perror("send:");
-		exit(1);
+	if (send(client_socket, response_header, header_len, 0) == -1) {
+		perror("send header");
+		free(file_content);
+		return;
 	}
 
-	int send_body = send(client_socket, file_content, file_stat.st_size, 0);
-	if (send_body == -1) {
-		perror("send:");
-		exit(1);
+	if (strcmp(method, "GET") == 0) {
+		if (send(client_socket, file_content, file_stat.st_size, 0) == -1) {
+			perror("send body");
+		}
 	}
 
 	free(file_content);
-
 }
 
 void send_error(int client_socket, int status_code, const char *status_message) {
 	char body[512];
-      	int body_len = snprintf(body, sizeof(body),
-        	"<html><head><title>%d %s</title></head>"
-          	"<body><h1>%d %s</h1></body></html>",
-          	status_code, status_message, status_code, status_message
+	int body_len = snprintf(body, sizeof(body),
+		"<html><head><title>%d %s</title></head>"
+		"<body><h1>%d %s</h1></body></html>",
+		status_code, status_message, status_code, status_message
 	);
 
-  	char response[1024];
-      	int response_len = snprintf(response, sizeof(response),
-          	"HTTP/1.1 %d %s\r\n"
-          	"Content-Type: text/html\r\n"
-          	"Content-Length: %d\r\n"
-          	"Connection: close\r\n"
-          	"\r\n"
-          	"%s",
-          	status_code, status_message, body_len, body
+	char response[1024];
+	int response_len = snprintf(response, sizeof(response),
+		"HTTP/1.1 %d %s\r\n"
+		"Content-Type: text/html\r\n"
+		"Content-Length: %d\r\n"
+		"Connection: close\r\n"
+		"\r\n"
+		"%s",
+		status_code, status_message, body_len, body
 	);
 
-      	send(client_socket, response, response_len, 0);
+	send(client_socket, response, response_len, 0);
+}
+
+const char* get_mime_type(const char *filepath) {
+	const char *ext = strrchr(filepath, '.');
+	if (!ext) return "application/octet-stream";
+
+	if (strcmp(ext, ".html") == 0 || strcmp(ext, ".htm") == 0) {
+		return "text/html";
+	} else if (strcmp(ext, ".css") == 0) {
+		return "text/css";
+	} else if (strcmp(ext, ".js") == 0) {
+		return "application/javascript";
+	} else if (strcmp(ext, ".json") == 0) {
+		return "application/json";
+	} else if (strcmp(ext, ".jpg") == 0 || strcmp(ext, ".jpeg") == 0) {
+		return "image/jpeg";
+	} else if (strcmp(ext, ".png") == 0) {
+		return "image/png";
+	} else if (strcmp(ext, ".gif") == 0) {
+		return "image/gif";
+	} else if (strcmp(ext, ".txt") == 0) {
+		return "text/plain";
+	}
+	return "application/octet-stream";
 }
