@@ -2,7 +2,7 @@
 
 ## Overview
 
-This repository contains implementations of networking protocols and personal projects, designed to illustrate core concepts in network programming and systems.
+This repository contains implementations of networking protocols and personal projects, designed to illustrate core concepts in network programming and systems. The projects range from basic TCP/UDP echo servers to a full HTTP/1.1 web server implementation.
 
 ### Project Structure
 
@@ -16,6 +16,10 @@ networking-projects/
 ├── client-server-C/        # C implementations
 │   ├── TCP-client.c
 │   └── TCP-server.c
+├── http-server/            # HTTP/1.1 server in C
+│   ├── http-server.c
+│   ├── http-client.c
+│   └── www/
 └── README.md              # This file
 ```
 
@@ -23,7 +27,7 @@ networking-projects/
 
 - **Python**: High-level socket programming using the `socket` module
 - **C**: Low-level socket programming using POSIX socket API
-- **Protocols**: TCP (Transmission Control Protocol), UDP (User Datagram Protocol)
+- **Protocols**: TCP, UDP (Transport Layer), HTTP/1.1 (Application Layer)
 
 ## Projects
 
@@ -38,7 +42,7 @@ Python-based client-server applications demonstrating both connection-oriented (
 
 See [client-server/README.md](client-server/README.md) for detailed documentation.
 
-### C Implementation (`client-server-C/`)
+### C TCP Implementation (`client-server-C/`)
 
 Low-level C implementations using the POSIX socket API, providing insight into system-level network programming and resource management.
 
@@ -48,6 +52,20 @@ Low-level C implementations using the POSIX socket API, providing insight into s
 - Direct system call interface
 
 See [client-server-C/README.md](client-server-C/README.md) for detailed documentation.
+
+### HTTP Server (`http-server/`)
+
+Full-featured HTTP/1.1 web server implementation in C, demonstrating application-layer protocol development on top of TCP sockets.
+
+**Features:**
+- HTTP/1.1 protocol implementation (Port 8080)
+- Static file serving with automatic MIME type detection
+- GET and HEAD method support
+- Directory traversal protection
+- Proper HTTP status codes (200, 400, 403, 404, 405, 500)
+- Support for HTML, CSS, JavaScript, images, and more
+
+See [http-server/README.md](http-server/README.md) for detailed documentation.
 
 ## Prerequisites
 
@@ -72,7 +90,7 @@ python client-server/UDP-server.py
 python client-server/UDP-client.py
 ```
 
-### C
+### C TCP Echo Server
 
 ```bash
 # Compile the C programs
@@ -84,6 +102,25 @@ gcc client-server-C/TCP-client.c -o tcp-client
 
 # In another terminal, run client
 ./tcp-client
+```
+
+### HTTP Server
+
+```bash
+# Compile
+cd http-server
+gcc http-server.c -o http-server
+
+# Create document root
+mkdir -p www
+echo '<html><body><h1>Hello World</h1></body></html>' > www/index.html
+
+# Run server
+./http-server
+
+# Test with curl or browser
+curl http://localhost:8080/
+# Or open http://localhost:8080/ in browser
 ```
 
 ## Learning Objectives
@@ -98,6 +135,7 @@ This repository helps developers understand:
 2. **Protocol Differences**
    - TCP: Connection-oriented, reliable, ordered delivery
    - UDP: Connectionless, unreliable, simple message passing
+   - HTTP: Application-layer protocol built on TCP
 
 3. **Client-Server Architecture**
    - Server lifecycle (bind, listen, accept)
@@ -109,6 +147,11 @@ This repository helps developers understand:
    - Memory management across languages
    - Error handling patterns
 
+5. **Protocol Layers**
+   - Transport Layer: TCP/UDP socket operations
+   - Application Layer: HTTP protocol implementation
+   - How higher-layer protocols build on lower layers
+
 ## Network Concepts Demonstrated
 
 - **Socket Types**: `SOCK_STREAM` (TCP), `SOCK_DGRAM` (UDP)
@@ -116,11 +159,15 @@ This repository helps developers understand:
 - **Byte Order Conversion**: Network byte order vs host byte order
 - **Blocking I/O**: Synchronous communication patterns
 - **Port Management**: Binding to specific ports
+- **HTTP Protocol**: Request parsing, response formatting, status codes
+- **MIME Types**: Content type detection and headers
+- **Security**: Input validation, directory traversal protection
 
 ## Testing
 
 To verify the implementations work correctly:
 
+### TCP/UDP Servers
 1. Start a server in one terminal
 2. Run the corresponding client in another terminal
 3. Enter text in the client (for Python implementations)
@@ -128,19 +175,36 @@ To verify the implementations work correctly:
 
 Expected behavior:
 - Python servers: Convert input to uppercase and echo back
-- C server: Send a predefined welcome message
+- C TCP server: Echo back the received message
 
-## Contributing
+### HTTP Server
+```bash
+# Start server
+./http-server
 
-This is an educational project. When contributing:
+# Test with curl
+curl http://localhost:8080/
+curl http://localhost:8080/about.html
+curl http://localhost:8080/nonexistent.html  # 404 error
 
-1. Maintain code clarity and documentation
-2. Follow existing naming conventions
-3. Add error handling for new features
-4. Update relevant README files
-5. Test with both client and server components
+# Or use a web browser
+# Open http://localhost:8080/
+```
+
+## Architecture Notes
+
+### Protocol Layering
+The projects demonstrate different protocol layers:
+- **Transport Layer**: TCP/UDP socket operations (client-server, client-server-C)
+- **Application Layer**: HTTP protocol on top of TCP (http-server)
+
+### From TCP to HTTP
+The HTTP server builds directly on TCP concepts:
+- Same socket creation, bind, listen, accept operations
+- Adds HTTP request parsing and response formatting
+- Adds file I/O for serving static content
+- Implements application-level error handling with HTTP status codes
 
 ## License
 
 This project is provided as-is for educational purposes.
-
